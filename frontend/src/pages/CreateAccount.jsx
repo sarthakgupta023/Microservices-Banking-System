@@ -12,17 +12,25 @@ export default function CreateAccount() {
   const [error, setError]   = useState('');
 
   const onSubmit = async e => {
-    e.preventDefault(); setLoading(true); setError('');
+    e.preventDefault(); 
+    
+    // 🚀 Direct Action Guard: Agar click ke waqt user fetched nahi hai
+    if (!user?.id) {
+      setError('Session loading, please try again in a second.');
+      return;
+    }
+
+    setLoading(true); setError('');
     try {
       await accountAPI.create({
-        userId: 1,
+        userId: user.id, // 🚀 Strict dynamic ID passed down to Gateway/Microservice
         accountHolderName: user?.name,
         email: user?.email,
         accountType: type,
       });
       navigate('/dashboard');
     } catch (err) {
-      setError(err.response?.data?.message || 'Failed to create account');
+      setError(err.response?.data?.message || err.message || 'Failed to create account');
     } finally { setLoading(false); }
   };
 
@@ -85,15 +93,15 @@ export default function CreateAccount() {
                 ))}
               </div>
 
-              {/* Preview */}
+              {/* Preview Summary Wrapper */}
               <div style={{
                 background: 'rgba(255,255,255,0.03)',
                 border: '1px solid rgba(255,255,255,0.07)',
                 borderRadius: 12, padding: 16, marginBottom: 24,
               }}>
                 {[
-                  { l: 'Account Holder', v: user?.name },
-                  { l: 'Email',          v: user?.email },
+                  { l: 'Account Holder', v: user?.name || '—' },
+                  { l: 'Email',          v: user?.email || '—' },
                   { l: 'Type',           v: type },
                   { l: 'Opening Balance',v: '₹0.00' },
                 ].map(row => (

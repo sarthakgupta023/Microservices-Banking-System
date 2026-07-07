@@ -19,11 +19,23 @@ export default function Deposit() {
   const [updatedBal, setUpdatedBal] = useState(null);
 
   useEffect(() => {
-    accountAPI.getByUser(1)
-      .then(r => setAccounts(r.data)).catch(() => {});
-  }, []);
-
-  const selectedAcc = accounts.find(a => a.accountNumber === selected);
+    if (user && user.id) {
+      accountAPI.getByUser(user.id)
+        .then(r => {
+          
+          setAccounts(r);
+          if (rlength > 0 && setSelected) {
+            setSelected(r[0].accountNumber);
+          }
+        })
+        .catch(() => {});
+    }
+    else {
+      console.log("skipped")
+    }
+  }, [user]);
+  
+const selectedAcc = accounts?.find(a => String(a.accountNumber) === String(selected)) || null;
 
   const onSubmit = async e => {
     e.preventDefault();
@@ -34,12 +46,15 @@ export default function Deposit() {
         accountNumber: selected,
         amount: parseFloat(amount),
       });
-      setUpdatedBal(res.data.balance);
+      setUpdatedBal(res.balance);
       setSuccess(`₹${parseFloat(amount).toLocaleString('en-IN')} deposited successfully!`);
       setAmount('');
-      // Refresh accounts
-      const r = await accountAPI.getByUser(1);
-      setAccounts(r.data);
+      
+      // FIXED: Safely refresh accounts using the active logged-in user id
+      if (user && user.id) {
+        const r = await accountAPI.getByUser(user.id);
+        setAccounts(r);
+      }
     } catch (err) {
       setError(err.response?.data?.message || 'Deposit failed');
     } finally { setLoading(false); }
@@ -105,16 +120,25 @@ export default function Deposit() {
               <div style={{ marginBottom: 24 }}>
                 <label className="field-label">Select Account</label>
                 <select
-                  value={selected}
-                  onChange={e => { setSelected(e.target.value); setSuccess(''); }}
-                  required className="olive-input">
-                  <option value="">Choose account</option>
-                  {accounts.map(a => (
-                    <option key={a.id} value={a.accountNumber}>
-                      {a.accountType} — {a.accountNumber}
+                value={selected}
+                onChange={e => { setSelected(e.target.value); setSuccess(''); }}
+                required 
+                className="olive-input"
+              >
+                <option value="">Choose account</option>
+                
+                {accounts && (Array.isArray(accounts) ? accounts : [accounts]).map(a => {
+                  // FIXED: Fallback checks handle any naming structure variation from backend
+                  const accNum = a?.accountNumber || a?.accNumber || a?.id || '';
+                  const accType = a?.accountType || a?.type || 'Savings';
+                  
+                  return (
+                    <option key={a?.id || accNum} value={accNum}>
+                      {accType} — {accNum}
                     </option>
-                  ))}
-                </select>
+                  );
+                })}
+              </select>
 
                 {/* Balance chip */}
                 {selectedAcc && (

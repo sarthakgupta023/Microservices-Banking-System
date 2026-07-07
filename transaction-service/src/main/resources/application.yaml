@@ -5,10 +5,11 @@ spring:
   application:
     name: transaction-service
 
+  # PostgreSQL Network Topology Alignment
   datasource:
-    url: jdbc:postgresql://transaction-db:5432/transaction_db
-    username: transaction_user
-    password: transaction_pass
+    url: ${SPRING_DATASOURCE_URL:jdbc:postgresql://postgres-db:5432/banking_core}
+    username: ${SPRING_DATASOURCE_USERNAME:sarthak_admin}
+    password: ${SPRING_DATASOURCE_PASSWORD:supersecurepassword}
     driver-class-name: org.postgresql.Driver
 
   jpa:
@@ -20,27 +21,24 @@ spring:
         dialect: org.hibernate.dialect.PostgreSQLDialect
         format_sql: true
 
-  # Kafka Producer config
+  # ── KAFKA PRODUCER CONFIG ────────────────────────────────
   kafka:
-    bootstrap-servers: kafka:9092
+    # Critical Fix: points to docker internal network broker address
+    bootstrap-servers: ${SPRING_KAFKA_BOOTSTRAP_SERVERS:kafka:9092}
     producer:
-      # Serialize everything as JSON strings
       key-serializer: org.apache.kafka.common.serialization.StringSerializer
       value-serializer: org.springframework.kafka.support.serializer.JsonSerializer
       properties:
-        # Embed the type info so consumer knows which class to deserialize to
         spring.json.add.type.headers: false
-      # Wait for all replicas to acknowledge (reliability over speed)
       acks: all
-      # Retry up to 3 times on transient failures
       retries: 3
 
-# JWT — must match auth-service exactly
+# JWT Configuration — Re-aligned to match the cluster signature perfectly
 jwt:
-  secret: banking-super-secret-key-for-jwt-2024-minimum-256bits
-  expiration: 86400000
+  secret: ${JWT_SECRET:BankingAppSuperSecretKey2024ForJWTSigningMustBe256BitsLong!!}
+  expiration: ${JWT_EXPIRATION:86400000}
 
-# Service URLs (Docker internal DNS)
+# Service URLs (Docker internal DNS resolution)
 services:
   account-service:
-    url: http://account-service:8082
+    url: ${ACCOUNT_SERVICE_URL:http://account-service:8082}

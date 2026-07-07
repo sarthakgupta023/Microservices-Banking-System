@@ -15,8 +15,8 @@ import lombok.NoArgsConstructor;
 public class TransactionResponse {
     private Long id;
     private String referenceId;
-    private Long senderAccountId;
-    private Long receiverAccountId;
+    private String senderAccountId;
+    private String receiverAccountId;
     private BigDecimal amount;
     private String currency;
     private String type;

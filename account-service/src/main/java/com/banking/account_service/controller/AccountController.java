@@ -55,7 +55,9 @@ public class AccountController {
     @GetMapping("/user/{userId}")
     public ResponseEntity<List<AccountResponse>> getByUserId(
             @PathVariable Long userId) {
-        return ResponseEntity.ok(accountService.getAccountsByUserId(userId));
+        List<AccountResponse> accounts = accountService.getAccountsByUserId(userId);
+        System.out.println(accounts.size());
+        return ResponseEntity.ok(accounts);
     }
 
     // PUT /api/accounts/deposit

@@ -66,8 +66,10 @@ public class JwtAuthFilter extends
             // Token valid — user info downstream service ko bhejo (header mein)
             String email = jwtUtil.extractEmail(token);
             String role = jwtUtil.extractRole(token);
+            String id = jwtUtil.extractId(token);
 
             ServerHttpRequest modifiedRequest = request.mutate()
+                    .header("X-User-Id", id)
                     .header("X-User-Email", email)
                     .header("X-User-Role", role)
                     .build();

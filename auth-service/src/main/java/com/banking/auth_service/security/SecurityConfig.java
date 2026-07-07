@@ -5,8 +5,10 @@ import org.springframework.context.annotation.Configuration;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
 import org.springframework.security.config.annotation.web.configuration.EnableWebSecurity;
 import org.springframework.security.config.http.SessionCreationPolicy;
+import org.springframework.security.core.userdetails.UserDetailsService;
 import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 import org.springframework.security.crypto.password.PasswordEncoder;
+import org.springframework.security.provisioning.InMemoryUserDetailsManager;
 import org.springframework.security.web.SecurityFilterChain;
 import org.springframework.security.web.authentication.UsernamePasswordAuthenticationFilter;
 
@@ -22,10 +24,10 @@ public class SecurityConfig {
     @Bean
     public SecurityFilterChain filterChain(HttpSecurity http) throws Exception {
         http
-                .csrf(csrf -> csrf.disable()) // REST API mein CSRF nahi chahiye
+                .csrf(csrf -> csrf.disable()) // REST API — CSRF not needed
                 .sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
                 .authorizeHttpRequests(auth -> auth
-                        // Yeh endpoints bina token ke accessible hain
+                        // Public endpoints — no token required
                         .requestMatchers(
                                 "/api/auth/register",
                                 "/api/auth/login",
@@ -33,12 +35,20 @@ public class SecurityConfig {
                                 "/api/auth/health",
                                 "/actuator/health")
                         .permitAll()
-                        // Baaki sab ke liye token chahiye
+                        // Everything else needs a valid token
                         .anyRequest().authenticated())
                 .addFilterBefore(jwtAuthFilter,
                         UsernamePasswordAuthenticationFilter.class);
 
         return http.build();
+    }
+
+    // Empty in-memory user store — prevents Spring Boot from
+    // auto-generating a default password, since auth is fully
+    // handled by JwtAuthFilter and we don't use form/basic login.
+    @Bean
+    public UserDetailsService userDetailsService() {
+        return new InMemoryUserDetailsManager();
     }
 
     // BCrypt password encoder — industry standard

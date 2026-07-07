@@ -1,5 +1,5 @@
 server:
-  port: 8080
+  port: 8090
 
 spring:
   application:
@@ -7,7 +7,7 @@ spring:
 
   cloud:
     gateway:
-      # CORS — React frontend ke liye
+      # CORS Config — Allows your React/Vite frontends to talk to the gateway
       globalcors:
         corsConfigurations:
           '[/**]':
@@ -23,47 +23,37 @@ spring:
             allowedHeaders: "*"
             allowCredentials: true
 
-      # ── ROUTES — kaunsa URL kahan jaayega ──────────────
+      # ── ROUTES — Docker internal network routing ──────────────
       routes:
 
-        # Auth Service — token nahi chahiye register/login ke liye
+        # 1. Auth Service Route (Points to Docker container name)
         - id: auth-service
-          uri: http://localhost:8081
+          uri: http://auth-service:8081
           predicates:
             - Path=/api/auth/**
           filters:
             - name: JwtAuthFilter
               args:
-                excludedPaths:
-                  - /api/auth/register
-                  - /api/auth/login
-                  - /api/auth/validate
+                # 💡 Fixed: Pass as a single comma-separated string for flawless parsing
+                excludedPaths: "/api/auth/register,/api/auth/login,/api/auth/validate"
 
-        # Account Service — JWT zaroori
+        # 2. Account Service Route (Points to Docker container name)
         - id: account-service
-          uri: http://localhost:8082
+          uri: http://account-service:8082
           predicates:
             - Path=/api/accounts/**
           filters:
             - JwtAuthFilter
 
-        # Transaction Service — JWT zaroori
+        # 3. Transaction Service Route (Points to Docker container name)
         - id: transaction-service
-          uri: http://localhost:8083
+          uri: http://transaction-service:8083
           predicates:
             - Path=/api/transactions/**
           filters:
             - JwtAuthFilter
 
-        # Notification Service — JWT zaroori
-        - id: notification-service
-          uri: http://localhost:8084
-          predicates:
-            - Path=/api/notifications/**
-          filters:
-            - JwtAuthFilter
-
-# JWT config — same secret sab services mein
+# JWT Config — Keep this secure and uniform across services
 jwt:
   secret: ${JWT_SECRET:BankingAppSuperSecretKey2024ForJWTSigningMustBe256BitsLong!!}
 

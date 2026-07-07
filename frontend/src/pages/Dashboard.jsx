@@ -23,7 +23,7 @@ const MOCK_CHART = [
 ];
 
 const fmt = (n) =>
-  '₹' + parseFloat(n).toLocaleString('en-IN', { minimumFractionDigits: 2 });
+  '₹' + parseFloat(n || 0).toLocaleString('en-IN', { minimumFractionDigits: 2 });
 
 export default function Dashboard() {
   const { user } = useAuth();
@@ -32,11 +32,28 @@ export default function Dashboard() {
   const [loading, setLoading]   = useState(true);
 
   useEffect(() => {
-    accountAPI.getByUser(1)
-      .then(r => setAccounts(r.data))
-      .catch(() => {})
-      .finally(() => setLoading(false));
-  }, []);
+    console.log("Dashboard mount - Current user object:", user);
+  
+    if (user && user.id) {
+      accountAPI.getByUser(user.id)
+        .then(r => {
+          console.log("Account API Raw Response on Dashboard:", r);
+          
+          // 🎯 FIXED: Consistently extract response direct array based on your client wrapper fix
+          const cleanArray = Array.isArray(r) ? r : (r?.data ? r.data : []);
+          setAccounts(cleanArray);
+        })
+        .catch((err) => {
+          console.error("Account API Network Error:", err);
+          setAccounts([]);
+        })
+        .finally(() => setLoading(false));
+    } else {
+      // CRITICAL: Stop the spinner if session isn't populated yet
+      console.warn("Skipping account fetch: user or user.id is missing.");
+      setLoading(false); 
+    }
+  }, [user]);
 
   const total = accounts.reduce(
     (s, a) => s + parseFloat(a.balance || 0), 0
@@ -66,7 +83,7 @@ export default function Dashboard() {
         {/* Welcome */}
         <div className="fade-in" style={{ marginBottom: 28 }}>
           <h2 style={{ fontSize: 24, fontWeight: 700, color: '#fff' }}>
-            Good morning, {user?.name?.split(' ')[0]} 👋
+            Good morning, {user?.name ? user.name.split(' ')[0] : 'User'} 👋
           </h2>
           <p style={{ color: 'rgba(255,255,255,0.35)', fontSize: 14, marginTop: 4 }}>
             Here's your financial overview
@@ -205,7 +222,8 @@ export default function Dashboard() {
 
             <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
               {accounts.map(acc => (
-                <div key={acc.id} style={{
+                // 🎯 FIXED: Using resilient key identifier fallback
+                <div key={acc?.id || acc?.accountNumber} style={{
                   background: 'rgba(255,255,255,0.03)',
                   border: '1px solid rgba(201,168,76,0.15)',
                   borderRadius: 12, padding: 16,
@@ -226,19 +244,19 @@ export default function Dashboard() {
                     <div>
                       <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
                         <span style={{ fontSize: 18 }}>
-                          {acc.accountType === 'SAVINGS' ? '💰' : '🏢'}
+                          {acc?.accountType === 'SAVINGS' ? '💰' : '🏢'}
                         </span>
                         <span style={{ fontWeight: 600, fontSize: 14, color: '#fff' }}>
-                          {acc.accountType}
+                          {acc?.accountType || 'SAVINGS'}
                         </span>
                         <span className={
-                          acc.status === 'ACTIVE' ? 'badge-active' : 'badge-inactive'
-                        }>{acc.status}</span>
+                          acc?.status === 'ACTIVE' ? 'badge-active' : 'badge-inactive'
+                        }>{acc?.status || 'ACTIVE'}</span>
                       </div>
                       <p style={{
                         color: 'rgba(255,255,255,0.35)', fontSize: 11,
                         fontFamily: 'monospace', marginTop: 6,
-                      }}>{acc.accountNumber}</p>
+                      }}>{acc?.accountNumber}</p>
                     </div>
                     <div style={{ textAlign: 'right' }}>
                       <p style={{
@@ -248,7 +266,7 @@ export default function Dashboard() {
                       <p style={{
                         color: '#f0c96a', fontSize: 18,
                         fontWeight: 700, letterSpacing: -0.5,
-                      }}>{fmt(acc.balance)}</p>
+                      }}>{fmt(acc?.balance)}</p>
                     </div>
                   </div>
                 </div>
@@ -306,7 +324,7 @@ export default function Dashboard() {
                 {[
                   { label: 'Total Accounts', val: accounts.length },
                   { label: 'Active Accounts',
-                    val: accounts.filter(a => a.status === 'ACTIVE').length },
+                    val: accounts.filter(a => a?.status === 'ACTIVE').length },
                   { label: 'Total Balance', val: fmt(total) },
                 ].map(s => (
                   <div key={s.label} style={{

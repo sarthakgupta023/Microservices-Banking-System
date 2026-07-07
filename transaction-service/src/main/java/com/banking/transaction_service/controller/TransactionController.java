@@ -27,7 +27,7 @@ public class TransactionController {
     private final TransactionService transactionService;
 
     // POST /api/transactions — initiate a new transaction
-    @PostMapping
+    @PostMapping("/transfer")
     public ResponseEntity<TransactionResponse> initiateTransaction(
             @Valid @RequestBody TransactionRequest request) {
         TransactionResponse response = transactionService.initiateTransaction(request);
@@ -50,7 +50,7 @@ public class TransactionController {
     // GET /api/transactions/account/{accountId} — transaction history
     @GetMapping("/account/{accountId}")
     public ResponseEntity<List<TransactionResponse>> getAccountTransactions(
-            @PathVariable Long accountId) {
+            @PathVariable String accountId) {
         return ResponseEntity.ok(transactionService.getAccountTransactions(accountId));
     }
 

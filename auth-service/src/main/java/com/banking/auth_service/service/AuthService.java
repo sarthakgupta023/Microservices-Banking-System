@@ -36,14 +36,17 @@ public class AuthService {
                 .role("ROLE_USER")
                 .build();
 
-        userRepository.save(user); // DB mein save karo
+        // FIXED: Catch the updated object from Hibernate containing the auto-increment
+        // ID!
+        User savedUser = userRepository.save(user);
 
         // JWT token generate karo
-        String token = jwtUtil.generateToken(user.getEmail(),
-                user.getRole(),
-                user.getName());
+        String token = jwtUtil.generateToken(savedUser.getEmail(),
+                savedUser.getRole(),
+                savedUser.getName());
 
-        return buildResponse(token, user);
+        // FIXED: Pass savedUser so id is never null!
+        return buildResponse(token, savedUser);
     }
 
     // ── LOGIN ─────────────────────────────────────────────
@@ -66,7 +69,6 @@ public class AuthService {
     }
 
     // ── VALIDATE TOKEN ────────────────────────────────────
-    // Gateway yeh call karega — token valid hai ya nahi check ke liye
     public boolean validateToken(String token) {
         return jwtUtil.isTokenValid(token);
     }
@@ -74,6 +76,7 @@ public class AuthService {
     // ── HELPER ────────────────────────────────────────────
     private AuthResponse buildResponse(String token, User user) {
         return AuthResponse.builder()
+                .id(user.getId()) // Will now cleanly receive the Long ID mapping
                 .token(token)
                 .type("Bearer")
                 .email(user.getEmail())

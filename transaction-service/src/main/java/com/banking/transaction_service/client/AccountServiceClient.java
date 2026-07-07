@@ -23,18 +23,23 @@ public class AccountServiceClient {
                 .build();
     }
 
-    public boolean debit(Long accountId, BigDecimal amount, String referenceId) {
+    // 💸 DEBIT: /api/accounts/internal/withdraw ko PUT request marega
+    public boolean debit(String accountId, BigDecimal amount, String referenceId) {
         try {
-            webClient.post()
-                    .uri("/api/accounts/{id}/debit", accountId)
-                    .bodyValue(Map.of("amount", amount, "referenceId", referenceId))
+            webClient.put() // 🚀 Aligned to PUT
+                    .uri("/api/accounts/internal/withdraw") // 🚀 Aligned to your internal controller path
+                    .bodyValue(Map.of(
+                            "accountNumber", accountId, // "BNK3126438102"
+                            "amount", amount,
+                            "referenceId", referenceId))
                     .retrieve()
                     .toBodilessEntity()
                     .block();
             log.info("Debit successful: accountId={}, amount={}", accountId, amount);
             return true;
         } catch (WebClientResponseException e) {
-            log.error("Debit failed: accountId={}, status={}", accountId, e.getStatusCode());
+            log.error("Debit failed: accountId={}, status={}, body={}", accountId, e.getStatusCode(),
+                    e.getResponseBodyAsString());
             return false;
         } catch (Exception e) {
             log.error("Debit error: accountId={}, error={}", accountId, e.getMessage());
@@ -42,18 +47,23 @@ public class AccountServiceClient {
         }
     }
 
-    public boolean credit(Long accountId, BigDecimal amount, String referenceId) {
+    // 💰 CREDIT: /api/accounts/internal/deposit ko PUT request marega
+    public boolean credit(String accountId, BigDecimal amount, String referenceId) {
         try {
-            webClient.post()
-                    .uri("/api/accounts/{id}/credit", accountId)
-                    .bodyValue(Map.of("amount", amount, "referenceId", referenceId))
+            webClient.put() // 🚀 Aligned to PUT
+                    .uri("/api/accounts/internal/deposit") // 🚀 Aligned to your internal controller path
+                    .bodyValue(Map.of(
+                            "accountNumber", accountId, // "BNK3126438102"
+                            "amount", amount,
+                            "referenceId", referenceId))
                     .retrieve()
                     .toBodilessEntity()
                     .block();
             log.info("Credit successful: accountId={}, amount={}", accountId, amount);
             return true;
         } catch (WebClientResponseException e) {
-            log.error("Credit failed: accountId={}, status={}", accountId, e.getStatusCode());
+            log.error("Credit failed: accountId={}, status={}, body={}", accountId, e.getStatusCode(),
+                    e.getResponseBodyAsString());
             return false;
         } catch (Exception e) {
             log.error("Credit error: accountId={}, error={}", accountId, e.getMessage());
@@ -61,7 +71,8 @@ public class AccountServiceClient {
         }
     }
 
-    public boolean refund(Long accountId, BigDecimal amount, String referenceId) {
+    // 🔄 REFUND (SAGA Compensation)
+    public boolean refund(String accountId, BigDecimal amount, String referenceId) {
         log.warn("SAGA COMPENSATION: Refunding accountId={}, amount={}", accountId, amount);
         return credit(accountId, amount, "REFUND-" + referenceId);
     }

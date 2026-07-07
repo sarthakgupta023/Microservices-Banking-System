@@ -33,9 +33,9 @@ public class Transaction {
     private String referenceId;
 
     @Column(nullable = false)
-    private Long senderAccountId;
+    private String senderAccountId;
 
-    private Long receiverAccountId;
+    private String receiverAccountId;
 
     @Column(nullable = false, precision = 19, scale = 4)
     private BigDecimal amount;

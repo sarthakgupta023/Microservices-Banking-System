@@ -1,11 +1,13 @@
 import { useEffect, useState } from 'react';
 import Navbar from '../components/Navbar';
+import { useAuth } from '../context/AuthContext';
 import { accountAPI, transactionAPI } from '../services/api';
 
 const fmt = n =>
-  '₹' + parseFloat(n).toLocaleString('en-IN', { minimumFractionDigits: 2 });
+  '₹' + parseFloat(n || 0).toLocaleString('en-IN', { minimumFractionDigits: 2 });
 
 export default function Transfer() {
+  const { user } = useAuth(); 
   const [accounts, setAccounts] = useState([]);
   const [form, setForm] = useState({
     fromAccount: '', toAccount: '', amount: '', description: '',
@@ -14,28 +16,79 @@ export default function Transfer() {
   const [success, setSuccess]   = useState('');
   const [error, setError]       = useState('');
 
+  // 1. Fetch user accounts dynamically using the direct response fix (r instead of r.data)
   useEffect(() => {
-    accountAPI.getByUser(1).then(r => setAccounts(r.data)).catch(() => {});
-  }, []);
+    if (user && user.id) {
+      accountAPI.getByUser(user.id)
+        .then(r => {
+          // 🎯 FIXED: Direct wrapper conversion
+          const cleanArray = Array.isArray(r) ? r : (r?.data ? r.data : []);
+          setAccounts(cleanArray);
+          
+          if (cleanArray.length > 0) {
+            setForm(prev => ({ ...prev, fromAccount: cleanArray[0].accountNumber }));
+          }
+        })
+        .catch(() => {});
+    }
+  }, [user]); 
 
   const onChange = e => setForm({ ...form, [e.target.name]: e.target.value });
 
-  const selectedAcc = accounts.find(a => a.accountNumber === form.fromAccount);
+  const selectedAcc = accounts.find(a => String(a.accountNumber) === String(form.fromAccount));
 
   const onSubmit = async e => {
-    e.preventDefault(); setLoading(true);
-    setError(''); setSuccess('');
+    e.preventDefault(); 
+    
+    if (!user?.id) {
+      setError("Session loading, please try again in a second.");
+      return;
+    }
+
+    setLoading(true); setError(''); setSuccess('');
+
+    const activeAcc = accounts.find(a => String(a.accountNumber) === String(form.fromAccount));
+    if (!activeAcc) {
+      setError("Please select a valid 'From Account'");
+      setLoading(false);
+      return;
+    }
+
+    if (parseFloat(form.amount) > parseFloat(activeAcc.balance)) {
+      setError("Insufficient balance in the selected account.");
+      setLoading(false);
+      return;
+    }
+
     try {
+      // 🚀 Clean Payload passing exact account numbers to Microservices
       await transactionAPI.transfer({
-        fromAccountNumber: form.fromAccount,
-        toAccountNumber:   form.toAccount,
+        senderAccountId:   form.fromAccount.trim(),          
+        receiverAccountId: form.toAccount.trim(),      
         amount:            parseFloat(form.amount),
+        currency:          "INR",                       
+        type:              "TRANSFER",                  
         description:       form.description,
       });
-      setSuccess('Transfer completed successfully!');
-      setForm({ fromAccount: '', toAccount: '', amount: '', description: '' });
+      
+      setSuccess('Transfer initiated successfully!');
+      
+      // Reset form fields but keep the default sender account selected
+      setForm({ 
+        fromAccount: accounts.length > 0 ? accounts[0].accountNumber : '', 
+        toAccount: '', 
+        amount: '', 
+        description: '' 
+      });
+
+      // 🎯 FIXED: Re-fetching balance using direct response assignment 'r'
+      if (user && user.id) {
+        const r = await accountAPI.getByUser(user.id);
+        setAccounts(r);
+      }
+
     } catch (err) {
-      setError(err.response?.data?.message || 'Transfer failed');
+      setError(err.response?.data?.message || err.message || 'Transfer failed');
     } finally { setLoading(false); }
   };
 
@@ -79,9 +132,9 @@ export default function Transfer() {
                   name="fromAccount" value={form.fromAccount}
                   onChange={onChange} required className="olive-input">
                   <option value="">Select your account</option>
-                  {accounts.map(a => (
-                    <option key={a.id} value={a.accountNumber}>
-                      {a.accountNumber} — {fmt(a.balance)}
+                  {accounts && (Array.isArray(accounts) ? accounts : [accounts]).map(a => (
+                    <option key={a?.id || a?.accountNumber} value={a?.accountNumber}>
+                      {a?.accountNumber} — {fmt(a?.balance)}
                     </option>
                   ))}
                 </select>

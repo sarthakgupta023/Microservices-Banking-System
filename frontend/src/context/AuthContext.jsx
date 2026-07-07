@@ -15,7 +15,7 @@ export function AuthProvider({ children }) {
   }, []);
 
   const login = (res) => {
-    const u = { email: res.email, name: res.name, role: res.role };
+    const u = {id: res.id, email: res.email, name: res.name, role: res.role };
     setToken(res.token); setUser(u);
     localStorage.setItem('token', res.token);
     localStorage.setItem('user', JSON.stringify(u));

@@ -12,9 +12,9 @@ import lombok.Data;
 public class TransactionRequest {
 
     @NotNull(message = "Sender account ID is required")
-    private Long senderAccountId;
+    private String senderAccountId;
 
-    private Long receiverAccountId;
+    private String receiverAccountId;
 
     @NotNull
     @DecimalMin(value = "0.01", message = "Amount must be positive")

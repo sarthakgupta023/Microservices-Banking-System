@@ -33,6 +33,13 @@ public class JwtUtil {
         return getClaims(token).getSubject();
     }
 
+    // FIXED: Reads the custom 'id' claim parameter from the token body wrapper
+    // instead of calling an undefined method
+    public String extractId(String token) {
+        Object idClaim = getClaims(token).get("id");
+        return idClaim != null ? idClaim.toString() : null;
+    }
+
     public String extractRole(String token) {
         return (String) getClaims(token).get("role");
     }

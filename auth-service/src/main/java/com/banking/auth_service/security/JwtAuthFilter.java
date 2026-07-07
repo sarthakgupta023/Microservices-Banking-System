@@ -14,9 +14,11 @@ import jakarta.servlet.ServletException;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 
 @Component
 @RequiredArgsConstructor
+@Slf4j
 public class JwtAuthFilter extends OncePerRequestFilter {
 
     private final JwtUtil jwtUtil;
@@ -27,30 +29,39 @@ public class JwtAuthFilter extends OncePerRequestFilter {
             FilterChain filterChain)
             throws ServletException, IOException {
 
-        // Header se token nikalo: "Authorization: Bearer <token>"
-        String authHeader = request.getHeader("Authorization");
+        String path = request.getRequestURI();
 
-        if (authHeader == null || !authHeader.startsWith("Bearer ")) {
-            // Token nahi hai — public endpoints ke liye pass karo
+        // Skip the filter for public endpoints
+        if (path.equals("/api/auth/register")
+                || path.equals("/api/auth/login")
+                || path.equals("/api/auth/health")) {
             filterChain.doFilter(request, response);
             return;
         }
 
-        String token = authHeader.substring(7); // "Bearer " ke baad wala part
+        String authHeader = request.getHeader("Authorization");
+
+        if (authHeader == null || !authHeader.startsWith("Bearer ")) {
+            filterChain.doFilter(request, response);
+            return;
+        }
+
+        String token = authHeader.substring(7);
 
         if (jwtUtil.isTokenValid(token)) {
             String email = jwtUtil.extractEmail(token);
             String role = jwtUtil.extractRole(token);
 
-            // Spring Security ko batao — yeh user authenticated hai
             UsernamePasswordAuthenticationToken authentication = new UsernamePasswordAuthenticationToken(
                     email,
                     null,
                     List.of(new SimpleGrantedAuthority(role)));
 
             SecurityContextHolder.getContext().setAuthentication(authentication);
+            filterChain.doFilter(request, response);
+        } else {
+            log.warn("Invalid JWT token detected for path: {}", path);
+            response.sendError(HttpServletResponse.SC_UNAUTHORIZED, "Invalid or expired token");
         }
-
-        filterChain.doFilter(request, response);
     }
 }

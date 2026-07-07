@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
 import Navbar from '../components/Navbar';
+import { useAuth } from '../context/AuthContext';
 import { accountAPI, transactionAPI } from '../services/api';
 
 const fmt = n =>
@@ -15,42 +16,59 @@ const fmtDate = (d) => {
 };
 
 export default function History() {
+  const { user } = useAuth(); 
   const [accounts, setAccounts]   = useState([]);
   const [selected, setSelected]   = useState('');
   const [txns, setTxns]           = useState([]);
-  const [loading, setLoading]     = useState(false);
+  const [loading, setLoading]     = useState(false); 
   const [filter, setFilter]       = useState('ALL');
 
+  // 1. Fetch Accounts dynamically using direct response wrapper fix
   useEffect(() => {
-    accountAPI.getByUser(1).then(r => {
-      setAccounts(r.data);
-      if (r.data.length > 0) {
-        setSelected(r.data[0].accountNumber);
-      }
-    }).catch(() => {});
-  }, []);
+    if (user && user.id) {
+      accountAPI.getByUser(user.id)
+        .then(r => {
+          // 🎯 FIXED: Direct parsing (r instead of r.data)
+          const cleanArray = Array.isArray(r) ? r : (r?.data ? r.data : []);
+          setAccounts(cleanArray);
+          if (cleanArray.length > 0) {
+            setSelected(cleanArray[0].accountNumber);
+          }
+        })
+        .catch(() => {});
+    }
+  }, [user]); 
 
+  // 2. Fetch History when 'selected' account changes
   useEffect(() => {
     if (!selected) return;
     setLoading(true);
     transactionAPI.getHistory(selected)
-      .then(r => setTxns(r.data || []))
+      .then(r => {
+        // 🎯 FIXED: Removed '.data' constraint to align with your custom wrapper response 
+        const cleanTxns = Array.isArray(r) ? r : (r?.data ? r.data : []);
+        setTxns(cleanTxns);
+      })
       .catch(() => setTxns([]))
       .finally(() => setLoading(false));
   }, [selected]);
 
-  const filtered = txns.filter(t =>
-    filter === 'ALL' ? true : t.type === filter
-  );
+  // Target dynamic transactional orientation checks
+  const isCredit = (t) => String(t.toAccountNumber) === String(selected) || String(t.receiverAccountId) === String(selected);
+
+  const filtered = txns.filter(t => {
+    if (filter === 'ALL') return true;
+    const creditFlag = isCredit(t);
+    return filter === 'CREDIT' ? creditFlag : !creditFlag;
+  });
 
   const totalIn  = txns
-    .filter(t => t.toAccountNumber === selected)
+    .filter(t => String(t.toAccountNumber) === String(selected) || String(t.receiverAccountId) === String(selected))
     .reduce((s, t) => s + parseFloat(t.amount || 0), 0);
+    
   const totalOut = txns
-    .filter(t => t.fromAccountNumber === selected)
+    .filter(t => String(t.fromAccountNumber) === String(selected) || String(t.senderAccountId) === String(selected))
     .reduce((s, t) => s + parseFloat(t.amount || 0), 0);
-
-  const isCredit = (t) => t.toAccountNumber === selected;
 
   return (
     <div style={{ minHeight: '100vh', background: '#0f1a08' }}>
@@ -82,9 +100,9 @@ export default function History() {
                 onChange={e => setSelected(e.target.value)}
                 className="olive-input"
                 style={{ flex: 1, minWidth: 200 }}>
-                {accounts.map(a => (
-                  <option key={a.id} value={a.accountNumber}>
-                    {a.accountType} — {a.accountNumber}
+                {accounts && (Array.isArray(accounts) ? accounts : [accounts]).map(a => (
+                  <option key={a?.id || a?.accountNumber} value={a?.accountNumber}>
+                    {a?.accountType || 'SAVINGS'} — {a?.accountNumber}
                   </option>
                 ))}
               </select>
@@ -97,7 +115,7 @@ export default function History() {
             gap: 12, marginBottom: 20,
           }}>
             {[
-              { label: 'Total Transactions', val: txns.length,     color: '#fff' },
+              { label: 'Total Transactions', val: filtered.length, color: '#fff' },
               { label: 'Total Credited',     val: fmt(totalIn),    color: '#7ec87e' },
               { label: 'Total Debited',      val: fmt(totalOut),   color: '#e07c7c' },
             ].map(s => (
@@ -171,6 +189,9 @@ export default function History() {
 
             {!loading && filtered.map((txn, i) => {
               const credit = isCredit(txn);
+              const targetAccount = credit 
+                ? (txn.fromAccountNumber || txn.senderAccountId) 
+                : (txn.toAccountNumber || txn.receiverAccountId);
               return (
                 <div
                   key={txn.id || i}
@@ -206,7 +227,7 @@ export default function History() {
                       <p style={{ color: '#fff', fontWeight: 500, fontSize: 14 }}>
                         {credit ? 'Received from' : 'Sent to'}{' '}
                         <span style={{ fontFamily: 'monospace', fontSize: 12, color: 'rgba(255,255,255,0.5)' }}>
-                          {credit ? txn.fromAccountNumber : txn.toAccountNumber}
+                          {targetAccount || 'External Account'}
                         </span>
                       </p>
                       {txn.description && (
@@ -215,7 +236,7 @@ export default function History() {
                         </p>
                       )}
                       <p style={{ color: 'rgba(255,255,255,0.25)', fontSize: 11, marginTop: 3 }}>
-                        {fmtDate(txn.createdAt)}
+                        {fmtDate(txn.createdAt || txn.timestamp)}
                       </p>
                     </div>
                   </div>
@@ -230,10 +251,10 @@ export default function History() {
                     </p>
                     <span style={{
                       display: 'inline-block', marginTop: 4,
-                      background: txn.status === 'SUCCESS'
+                      background: txn.status === 'SUCCESS' || txn.status === 'COMPLETED'
                         ? 'rgba(126,200,126,0.1)' : 'rgba(224,124,124,0.1)',
-                      color: txn.status === 'SUCCESS' ? '#7ec87e' : '#e07c7c',
-                      border: `1px solid ${txn.status === 'SUCCESS'
+                      color: txn.status === 'SUCCESS' || txn.status === 'COMPLETED' ? '#7ec87e' : '#e07c7c',
+                      border: `1px solid ${txn.status === 'SUCCESS' || txn.status === 'COMPLETED'
                         ? 'rgba(126,200,126,0.2)' : 'rgba(224,124,124,0.2)'}`,
                       fontSize: 10, padding: '2px 8px',
                       borderRadius: 20, fontWeight: 600,

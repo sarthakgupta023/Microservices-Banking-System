@@ -16,9 +16,15 @@ export default function Register() {
     e.preventDefault(); setError(''); setLoading(true);
     try {
       const res = await authAPI.register(form);
-      login(res.data); navigate('/dashboard');
+      
+      // 🎯 FIXED: Direct wrapper handling (extract correct token/profile data consistently)
+      const cleanData = res?.data ? res.data : res;
+      
+      login(cleanData); 
+      navigate('/dashboard');
     } catch (err) {
-      setError(err.response?.data?.message || 'Registration failed');
+      const backendError = err.response?.data?.message || err.response?.data?.error || err.message || 'Registration failed';
+      setError(backendError);
     } finally { setLoading(false); }
   };
 

@@ -68,7 +68,7 @@ public class TransactionService {
         return mapToResponse(txn);
     }
 
-    public List<TransactionResponse> getAccountTransactions(Long accountId) {
+    public List<TransactionResponse> getAccountTransactions(String accountId) {
         return transactionRepository
                 .findBySenderAccountIdOrReceiverAccountIdOrderByCreatedAtDesc(accountId, accountId)
                 .stream()

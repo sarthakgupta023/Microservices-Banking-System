@@ -16,8 +16,8 @@ public class TransactionEvent {
     private String eventType;
     private Long transactionId;
     private String referenceId;
-    private Long senderAccountId;
-    private Long receiverAccountId;
+    private String senderAccountId;
+    private String receiverAccountId;
     private BigDecimal amount;
     private String currency;
     private String transactionType;

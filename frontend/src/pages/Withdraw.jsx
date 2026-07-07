@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
 import Navbar from '../components/Navbar';
+import { useAuth } from '../context/AuthContext';
 import { accountAPI } from '../services/api';
 
 const fmt = n =>
@@ -12,16 +13,28 @@ export default function Withdraw() {
   const [selected, setSelected]     = useState('');
   const [amount, setAmount]         = useState('');
   const [loading, setLoading]       = useState(false);
+  const { user } = useAuth();
   const [success, setSuccess]       = useState('');
   const [error, setError]           = useState('');
   const [updatedBal, setUpdatedBal] = useState(null);
 
   useEffect(() => {
-    accountAPI.getByUser(1)
-      .then(r => setAccounts(r.data)).catch(() => {});
-  }, []);
+    if (user && user.id) {
+      accountAPI.getByUser(user.id)
+        .then(r => {
+          // 🎯 FIXED: Direct response wrapper assignment (r instead of r.data)
+          const cleanArray = Array.isArray(r) ? r : (r?.data ? r.data : []);
+          setAccounts(cleanArray);
+          
+          if (cleanArray.length > 0) {
+            setSelected(cleanArray[0].accountNumber);
+          }
+        })
+        .catch(() => {});
+    }
+  }, [user]);
 
-  const selectedAcc = accounts.find(a => a.accountNumber === selected);
+  const selectedAcc = accounts.find(a => String(a.accountNumber) === String(selected));
   const insufficient = selectedAcc &&
     amount && parseFloat(amount) > parseFloat(selectedAcc.balance);
 
@@ -34,13 +47,21 @@ export default function Withdraw() {
         accountNumber: selected,
         amount: parseFloat(amount),
       });
-      setUpdatedBal(res.data.balance);
+      
+      // 🎯 FIXED: Safe dynamic fallback checks from your custom client wrapper
+      const newBalance = res?.balance || res?.data?.balance;
+      setUpdatedBal(newBalance);
+      
       setSuccess(`₹${parseFloat(amount).toLocaleString('en-IN')} withdrawn successfully!`);
       setAmount('');
-      const r = await accountAPI.getByUser(1);
-      setAccounts(r.data);
+      
+      // 🎯 FIXED: Removed hardcoded user ID 1 and updated fetch to use direct reference 'r'
+      if (user && user.id) {
+        const r = await accountAPI.getByUser(user.id);
+        setAccounts(r);
+      }
     } catch (err) {
-      setError(err.response?.data?.message || 'Withdrawal failed');
+      setError(err.response?.data?.message || err.message || 'Withdrawal failed');
     } finally { setLoading(false); }
   };
 
@@ -105,9 +126,9 @@ export default function Withdraw() {
                   onChange={e => { setSelected(e.target.value); setSuccess(''); }}
                   required className="olive-input">
                   <option value="">Choose account</option>
-                  {accounts.map(a => (
-                    <option key={a.id} value={a.accountNumber}>
-                      {a.accountType} — {a.accountNumber}
+                  {accounts && (Array.isArray(accounts) ? accounts : [accounts]).map(a => (
+                    <option key={a?.id || a?.accountNumber} value={a?.accountNumber}>
+                      {a?.accountType || 'Savings'} — {a?.accountNumber}
                     </option>
                   ))}
                 </select>
@@ -198,7 +219,7 @@ export default function Withdraw() {
                 {amount && !insufficient && selectedAcc && (
                   <p style={{ color: 'rgba(255,255,255,0.35)', fontSize: 12, marginTop: 6 }}>
                     Balance after withdrawal:{' '}
-                    <span style={{ color: '#f0c96a' }}>
+                    <span style={{ color: '#7ec87e' }}>
                       {fmt(parseFloat(selectedAcc.balance) - parseFloat(amount))}
                     </span>
                   </p>

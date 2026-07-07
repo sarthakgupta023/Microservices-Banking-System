@@ -6,9 +6,10 @@ spring:
     name: account-service
 
   datasource:
-    url: ${SPRING_DATASOURCE_URL:jdbc:postgresql://localhost:5433/account_db}
-    username: ${SPRING_DATASOURCE_USERNAME:account_user}
-    password: ${SPRING_DATASOURCE_PASSWORD:account_pass}
+    # Docker environment variables standard check, fallback points to the docker network coordinates
+    url: ${SPRING_DATASOURCE_URL:jdbc:postgresql://postgres-db:5432/banking_core}
+    username: ${SPRING_DATASOURCE_USERNAME:sarthak_admin}
+    password: ${SPRING_DATASOURCE_PASSWORD:supersecurepassword}
     driver-class-name: org.postgresql.Driver
 
   jpa:

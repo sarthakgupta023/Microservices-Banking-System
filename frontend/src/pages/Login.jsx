@@ -16,9 +16,11 @@ export default function Login() {
     e.preventDefault(); setError(''); setLoading(true);
     try {
       const res = await authAPI.login(form);
-      login(res.data); navigate('/dashboard');
+      login(res); navigate('/dashboard');
     } catch (err) {
-      setError(err.response?.data?.message || 'Invalid credentials');
+      // Dynamic extraction: checks both standard JSON configurations
+      const backendError = err.response?.data?.message || err.response?.data?.error || 'Invalid credentials';
+      setError(backendError);
     } finally { setLoading(false); }
   };
 

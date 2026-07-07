@@ -15,11 +15,11 @@ public interface TransactionRepository extends JpaRepository<Transaction, Long> 
     Optional<Transaction> findByReferenceId(String referenceId);
 
     // All transactions for a given account (sent or received)
-    List<Transaction> findBySenderAccountIdOrderByCreatedAtDesc(Long senderAccountId);
+    List<Transaction> findBySenderAccountIdOrderByCreatedAtDesc(String senderAccountId);
 
-    List<Transaction> findByReceiverAccountIdOrderByCreatedAtDesc(Long receiverAccountId);
+    List<Transaction> findByReceiverAccountIdOrderByCreatedAtDesc(String receiverAccountId);
 
     // All transactions involving an account (either side)
     List<Transaction> findBySenderAccountIdOrReceiverAccountIdOrderByCreatedAtDesc(
-            Long senderAccountId, Long receiverAccountId);
+            String senderAccountId, String receiverAccountId);
 }
