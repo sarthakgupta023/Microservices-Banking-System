@@ -2,7 +2,6 @@ package com.banking.account_service.service;
 
 import java.math.BigDecimal;
 import java.util.List;
-import java.util.Random;
 import java.util.stream.Collectors;
 
 import org.springframework.stereotype.Service;
@@ -62,7 +61,7 @@ public class AccountService {
     // ── DEPOSIT ───────────────────────────────────────────
     @Transactional
     public AccountResponse deposit(TransactionRequest request) {
-        Account account = accountRepository.findByAccountNumber(request.getAccountNumber())
+        Account account = accountRepository.findByAccountNumberForUpdate(request.getAccountNumber())
                 .orElseThrow(() -> new RuntimeException("Account not found"));
 
         if (account.getStatus() != Account.AccountStatus.ACTIVE) {
@@ -76,7 +75,7 @@ public class AccountService {
     // ── WITHDRAW ──────────────────────────────────────────
     @Transactional
     public AccountResponse withdraw(TransactionRequest request) {
-        Account account = accountRepository.findByAccountNumber(request.getAccountNumber())
+        Account account = accountRepository.findByAccountNumberForUpdate(request.getAccountNumber())
                 .orElseThrow(() -> new RuntimeException("Account not found"));
 
         if (account.getStatus() != Account.AccountStatus.ACTIVE) {
@@ -103,12 +102,8 @@ public class AccountService {
     // ── GENERATE ACCOUNT NUMBER ───────────────────────────
     // Format: BNK + 10 random digits = "BNK1234567890"
     private String generateAccountNumber() {
-        String accountNumber;
-        Random random = new Random();
-        do {
-            long number = (long) (random.nextDouble() * 9_000_000_000L) + 1_000_000_000L;
-            accountNumber = "BNK" + number;
-        } while (accountRepository.existsByAccountNumber(accountNumber));
+        Long accountNumberseq = accountRepository.getNextAccountNumberSequence()
+        String accountNumber = "BNK" + accountNumberseq;
         return accountNumber;
     }
 }
