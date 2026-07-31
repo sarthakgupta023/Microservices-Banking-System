@@ -5,8 +5,6 @@ import java.time.LocalDateTime;
 
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
-import jakarta.persistence.EnumType;
-import jakarta.persistence.Enumerated;
 import jakarta.persistence.GeneratedValue;
 import jakarta.persistence.GenerationType;
 import jakarta.persistence.Id;
@@ -32,43 +30,16 @@ public class Transaction {
     @Column(unique = true, nullable = false)
     private String referenceId;
 
-    @Column(nullable = false)
     private String senderAccountId;
-
     private String receiverAccountId;
-
-    @Column(nullable = false, precision = 19, scale = 4)
     private BigDecimal amount;
-
-    @Column(nullable = false)
-    private String currency;
-
-    @Enumerated(EnumType.STRING)
-    @Column(nullable = false)
-    private TransactionType type;
-
-    @Enumerated(EnumType.STRING)
-    @Column(nullable = false)
-    private TransactionStatus status;
-
-    private String description;
+    private String status; // PENDING, DEBITED, SUCCESS, FAILED, COMPENSATING_REFUND, FAILED_AND_REFUNDED
     private String failureReason;
 
-    @Column(nullable = false, updatable = false)
     private LocalDateTime createdAt;
-
-    private LocalDateTime completedAt;
 
     @PrePersist
     protected void onCreate() {
-        createdAt = LocalDateTime.now();
-    }
-
-    public enum TransactionType {
-        TRANSFER, DEPOSIT, WITHDRAWAL
-    }
-
-    public enum TransactionStatus {
-        PENDING, COMPLETED, FAILED, REVERSED
+        this.createdAt = LocalDateTime.now();
     }
 }

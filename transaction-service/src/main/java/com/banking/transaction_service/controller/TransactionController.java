@@ -26,12 +26,19 @@ public class TransactionController {
 
     private final TransactionService transactionService;
 
-    // POST /api/transactions — initiate a new transaction
+    // POST /api/transactions/transfer — initiate a new transaction (Async Saga
+    // Entry Point)
     @PostMapping("/transfer")
     public ResponseEntity<TransactionResponse> initiateTransaction(
             @Valid @RequestBody TransactionRequest request) {
+
+        // Triggers the Saga: saves initial record with status 'PENDING' & emits first
+        // Kafka event
         TransactionResponse response = transactionService.initiateTransaction(request);
-        return ResponseEntity.status(HttpStatus.CREATED).body(response);
+
+        // 202 ACCEPTED signals to the caller that the request is received & processing
+        // asynchronously
+        return ResponseEntity.status(HttpStatus.ACCEPTED).body(response);
     }
 
     // GET /api/transactions/{id}

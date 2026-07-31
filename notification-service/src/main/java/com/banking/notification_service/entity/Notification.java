@@ -1,11 +1,8 @@
-package com.banking.account_service.entity;
+package com.banking.notification_service.entity;
 
-import java.math.BigDecimal;
 import java.time.LocalDateTime;
 
 import jakarta.persistence.Entity;
-import jakarta.persistence.EnumType;
-import jakarta.persistence.Enumerated;
 import jakarta.persistence.GeneratedValue;
 import jakarta.persistence.GenerationType;
 import jakarta.persistence.Id;
@@ -17,12 +14,12 @@ import lombok.Data;
 import lombok.NoArgsConstructor;
 
 @Entity
-@Table(name = "accounts")
+@Table(name = "notifications")
 @Data
 @Builder
 @NoArgsConstructor
 @AllArgsConstructor
-public class Account {
+public class Notification {
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
@@ -30,27 +27,19 @@ public class Account {
 
     private Long userId;
     private String accountNumber;
+    private String referenceId; // FIXED: Added referenceId
+    private String recipientEmail;
+    private String message;
+    private String notificationType;
+    private String status;
 
-    @Enumerated(EnumType.STRING)
-    private AccountType accountType;
-
-    private BigDecimal balance;
-
-    @Enumerated(EnumType.STRING)
-    private AccountStatus status;
+    @Builder.Default
+    private boolean isRead = false;
 
     private LocalDateTime createdAt;
 
     @PrePersist
     protected void onCreate() {
         this.createdAt = LocalDateTime.now();
-    }
-
-    public enum AccountType {
-        SAVINGS, CHECKING
-    }
-
-    public enum AccountStatus {
-        ACTIVE, INACTIVE, BLOCKED
     }
 }

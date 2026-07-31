@@ -51,6 +51,7 @@ export default function Navbar() {
         <NavLink to="/withdraw"       style={linkStyle}>Withdraw</NavLink>
         <NavLink to="/transfer"       style={linkStyle}>Transfer</NavLink>
         <NavLink to="/history"        style={linkStyle}>History</NavLink>
+        <NavLink to="/notifications"  style={linkStyle}>Notifications 🔔</NavLink>
         <NavLink to="/create-account" style={linkStyle}>+ Account</NavLink>
       </div>
 

@@ -39,7 +39,9 @@ public class JwtAuthFilter extends
         return (exchange, chain) -> {
             ServerHttpRequest request = exchange.getRequest();
             String path = request.getPath().toString();
-
+            if (org.springframework.web.cors.reactive.CorsUtils.isPreFlightRequest(request)) {
+                return chain.filter(exchange);
+            }
             // Public path hai toh filter skip karo
             if (isPublicPath(path)) {
                 return chain.filter(exchange);

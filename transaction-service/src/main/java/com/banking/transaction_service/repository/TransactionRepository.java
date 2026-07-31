@@ -11,15 +11,7 @@ import com.banking.transaction_service.entity.Transaction;
 @Repository
 public interface TransactionRepository extends JpaRepository<Transaction, Long> {
 
-    // Find by referenceId (UUID) — for idempotency checks
     Optional<Transaction> findByReferenceId(String referenceId);
 
-    // All transactions for a given account (sent or received)
-    List<Transaction> findBySenderAccountIdOrderByCreatedAtDesc(String senderAccountId);
-
-    List<Transaction> findByReceiverAccountIdOrderByCreatedAtDesc(String receiverAccountId);
-
-    // All transactions involving an account (either side)
-    List<Transaction> findBySenderAccountIdOrReceiverAccountIdOrderByCreatedAtDesc(
-            String senderAccountId, String receiverAccountId);
+    List<Transaction> findBySenderAccountIdOrReceiverAccountId(String senderAccountId, String receiverAccountId);
 }

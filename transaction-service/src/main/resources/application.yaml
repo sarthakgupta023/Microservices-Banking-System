@@ -23,15 +23,23 @@ spring:
 
   # ── KAFKA PRODUCER CONFIG ────────────────────────────────
   kafka:
-    # Critical Fix: points to docker internal network broker address
     bootstrap-servers: ${SPRING_KAFKA_BOOTSTRAP_SERVERS:kafka:9092}
     producer:
       key-serializer: org.apache.kafka.common.serialization.StringSerializer
       value-serializer: org.springframework.kafka.support.serializer.JsonSerializer
-      properties:
-        spring.json.add.type.headers: false
       acks: all
       retries: 3
+      properties:
+        spring.json.add.type.headers: false
+    consumer:
+      group-id: transaction-service-group
+      auto-offset-reset: earliest
+      key-deserializer: org.apache.kafka.common.serialization.StringDeserializer
+      value-deserializer: org.springframework.kafka.support.serializer.JsonDeserializer
+      properties:
+        spring.json.trusted.packages: "*"
+        # CRITICAL: Tell consumer which class to map into since type headers are disabled
+        spring.json.value.default.type: "com.banking.transaction_service.event.TransactionEvent"
 
 # JWT Configuration — Re-aligned to match the cluster signature perfectly
 jwt:

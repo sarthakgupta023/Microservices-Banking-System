@@ -36,7 +36,7 @@ services:
     environment:
       KAFKA_BROKER_ID: 1
       KAFKA_ZOOKEEPER_CONNECT: zookeeper:2181
-      KAFKA_ADVERTISED_LISTENERS: PLAINTEXT://kafka:2181,PLAINTEXT_HOST://localhost:9092
+      KAFKA_ADVERTISED_LISTENERS: PLAINTEXT://kafka:9092,PLAINTEXT_HOST://localhost:29092
       KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: PLAINTEXT:PLAINTEXT,PLAINTEXT_HOST:PLAINTEXT
       KAFKA_INTER_BROKER_LISTENER_NAME: PLAINTEXT
       KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1
@@ -66,8 +66,12 @@ services:
       - "8082:8082"
     depends_on:
       - postgres-db
+      - kafka
     environment:
       SPRING_DATASOURCE_URL: jdbc:postgresql://postgres-db:5432/banking_core
+      SPRING_DATASOURCE_USERNAME: sarthak_admin
+      SPRING_DATASOURCE_PASSWORD: supersecurepassword
+      SPRING_KAFKA_BOOTSTRAP_SERVERS: kafka:9092
     networks:
       - banking-network
 
@@ -82,7 +86,26 @@ services:
       - kafka
     environment:
       SPRING_DATASOURCE_URL: jdbc:postgresql://postgres-db:5432/banking_core
-      SPRING_KAFKA_BOOTSTRAP_SERVERS: kafka:2181
+      SPRING_DATASOURCE_USERNAME: sarthak_admin
+      SPRING_DATASOURCE_PASSWORD: supersecurepassword
+      SPRING_KAFKA_BOOTSTRAP_SERVERS: kafka:9092
+    networks:
+      - banking-network
+
+  # 4. Notification Service (Event Consumer)
+  notification-service:
+    build: ./notification-service
+    container_name: notification-service
+    ports:
+      - "8084:8084"
+    depends_on:
+      - postgres-db
+      - kafka
+    environment:
+      SPRING_DATASOURCE_URL: jdbc:postgresql://postgres-db:5432/banking_core
+      SPRING_DATASOURCE_USERNAME: sarthak_admin
+      SPRING_DATASOURCE_PASSWORD: supersecurepassword
+      SPRING_KAFKA_BOOTSTRAP_SERVERS: kafka:9092
     networks:
       - banking-network
 
@@ -96,6 +119,7 @@ services:
       - auth-service
       - account-service
       - transaction-service
+      - notification-service
     networks:
       - banking-network
 

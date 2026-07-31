@@ -6,6 +6,7 @@ import Dashboard from './pages/Dashboard';
 import Deposit from './pages/Deposit';
 import History from './pages/History';
 import Login from './pages/Login';
+import Notifications from './pages/Notifications';
 import Register from './pages/Register';
 import Transfer from './pages/Transfer';
 import Withdraw from './pages/Withdraw';
@@ -29,6 +30,8 @@ export default function App() {
             <PrivateRoute><Withdraw /></PrivateRoute>}/>
           <Route path="/history" element={
             <PrivateRoute><History /></PrivateRoute>}/>
+          <Route path="/notifications" element={
+            <PrivateRoute><Notifications /></PrivateRoute>}/>
           <Route path="*" element={<Navigate to="/dashboard" replace />}/>
         </Routes>
       </BrowserRouter>

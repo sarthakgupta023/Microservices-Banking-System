@@ -5,39 +5,48 @@ const api = axios.create({
   headers: { 'Content-Type': 'application/json' },
 });
 
+// Attach JWT token automatically
 api.interceptors.request.use((config) => {
   const token = localStorage.getItem('token');
   if (token) config.headers.Authorization = `Bearer ${token}`;
   return config;
 });
 
+// Unwrap response data globally
 api.interceptors.response.use(
-  (r) => r.data,
-  (err) => {
-    if (err.response?.status === 401) {
+  (response) => response.data,
+  (error) => {
+    if (error.response?.status === 401) {
       localStorage.clear();
       window.location.href = '/login';
     }
-    return Promise.reject(err);
+    return Promise.reject(error);
   }
 );
 
+// --- API SERVICES ---
+
 export const authAPI = {
-  register: (d) => api.post('/api/auth/register', d),
-  login:    (d) => api.post('/api/auth/login', d),
+  register: (data) => api.post('/api/auth/register', data),
+  login:    (data) => api.post('/api/auth/login', data),
 };
 
 export const accountAPI = {
-  create:     (d) => api.post('/api/accounts', d),
-  getByUser:  (id) => api.get(`/api/accounts/user/${id}`),
-  getBalance: (no) => api.get(`/api/accounts/balance/${no}`),
-  deposit:    (d) => api.put('/api/accounts/deposit', d),
-  withdraw:   (d) => api.put('/api/accounts/withdraw', d),
+  create:     (data) => api.post('/api/accounts', data),
+  getByUser:  (userId) => api.get(`/api/accounts/user/${userId}`),
+  getBalance: (accountNo) => api.get(`/api/accounts/${accountNo}/balance`),
+  deposit:    (data) => api.post('/api/accounts/deposit', data),
+  withdraw:   (data) => api.post('/api/accounts/withdraw', data),
 };
 
 export const transactionAPI = {
-  transfer:   (d) => api.post('/api/transactions/transfer', d),
-  getHistory: (no) => api.get(`/api/transactions/account/${no}`),
+  transfer:   (data) => api.post('/api/transactions/transfer', data),
+  getHistory: (accountNo) => api.get(`/api/transactions/account/${accountNo}`),
+};
+
+export const notificationAPI = {
+  getByUser:  (userId) => api.get(`/api/notifications/user/${userId}`),
+  markAsRead: (id) => api.patch(`/api/notifications/${id}/read`),
 };
 
 export default api;

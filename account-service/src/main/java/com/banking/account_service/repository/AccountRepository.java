@@ -20,15 +20,7 @@ public interface AccountRepository extends JpaRepository<Account, Long> {
 
     List<Account> findByUserId(Long userId);
 
-    List<Account> findByEmail(String email);
-
-    boolean existsByAccountNumber(String accountNumber);
-
     @Lock(LockModeType.PESSIMISTIC_WRITE)
     @Query("SELECT a FROM Account a WHERE a.accountNumber = :accountNumber")
-    Optional<Account> findByAccountNumberForUpdate(@Param("accountNumber") String accountNumber);
-
-    // used for finding the next account number
-    @Query(value = "SELECT nextval('account_number_seq')", nativeQuery = true)
-    Long getNextAccountNumberSequence();
+    Optional<Account> findByAccountNumberWithLock(@Param("accountNumber") String accountNumber);
 }

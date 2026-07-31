@@ -1,12 +1,10 @@
 package com.banking.transaction_service.service;
 
-import java.time.LocalDateTime;
-
+import org.springframework.kafka.annotation.KafkaListener;
 import org.springframework.kafka.core.KafkaTemplate;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
-import com.banking.transaction_service.client.AccountServiceClient;
-import com.banking.transaction_service.config.KafkaConfig;
 import com.banking.transaction_service.dto.TransactionEvent;
 import com.banking.transaction_service.entity.Transaction;
 import com.banking.transaction_service.repository.TransactionRepository;
@@ -19,89 +17,68 @@ import lombok.extern.slf4j.Slf4j;
 @Slf4j
 public class SagaOrchestrator {
 
-    private final AccountServiceClient accountServiceClient;
     private final TransactionRepository transactionRepository;
     private final KafkaTemplate<String, TransactionEvent> kafkaTemplate;
 
-    public Transaction executeTransferSaga(Transaction transaction) {
-        log.info("SAGA START: referenceId={}, amount={}", transaction.getReferenceId(), transaction.getAmount());
+    @KafkaListener(topics = "account-events", groupId = "transaction-service-group")
+    @Transactional
+    public void handleAccountEvents(TransactionEvent event) {
+        log.info("Saga Orchestrator received event: {} for Ref: {}", event.getStatus(), event.getReferenceId());
 
-        boolean debitSuccess = accountServiceClient.debit(
-                transaction.getSenderAccountId(), transaction.getAmount(), transaction.getReferenceId());
+        Transaction transaction = transactionRepository.findByReferenceId(event.getReferenceId())
+                .orElseThrow(
+                        () -> new RuntimeException("Transaction record not found for ref: " + event.getReferenceId()));
 
-        if (!debitSuccess) {
-            return failTransaction(transaction, "Debit failed: insufficient funds or account error");
+        switch (event.getStatus()) {
+            case "DEBIT_SUCCESS" -> handleDebitSuccess(transaction, event);
+            case "DEBIT_FAILED" -> handleDebitFailed(transaction, event);
+            case "CREDIT_SUCCESS" -> handleCreditSuccess(transaction, event);
+            case "CREDIT_FAILED" -> handleCreditFailed(transaction, event);
+            case "REFUNDED" -> handleRefundComplete(transaction, event);
+            default -> log.warn("Unhandled status received: {}", event.getStatus());
         }
-        log.info("SAGA STEP 1 OK: Debited accountId={}", transaction.getSenderAccountId());
-
-        boolean creditSuccess = accountServiceClient.credit(
-                transaction.getReceiverAccountId(), transaction.getAmount(), transaction.getReferenceId());
-
-        if (!creditSuccess) {
-            log.warn("SAGA STEP 2 FAILED: initiating compensation...");
-            boolean refundSuccess = accountServiceClient.refund(
-                    transaction.getSenderAccountId(), transaction.getAmount(), transaction.getReferenceId());
-            String reason = refundSuccess
-                    ? "Credit failed. Sender refunded successfully."
-                    : "Credit failed. WARNING: Refund also failed — manual intervention required!";
-            return failTransaction(transaction, reason);
-        }
-        log.info("SAGA STEP 2 OK: Credited accountId={}", transaction.getReceiverAccountId());
-        return completeTransaction(transaction);
     }
 
-    public Transaction executeDepositSaga(Transaction transaction) {
-        boolean creditSuccess = accountServiceClient.credit(
-                transaction.getSenderAccountId(), transaction.getAmount(), transaction.getReferenceId());
-        if (!creditSuccess)
-            return failTransaction(transaction, "Deposit credit failed");
-        return completeTransaction(transaction);
+    private void handleDebitSuccess(Transaction transaction, TransactionEvent event) {
+        transaction.setStatus("DEBITED");
+        transactionRepository.save(transaction);
+
+        // Step 2 Trigger: Request credit from target account
+        event.setStatus("INITIATE_CREDIT");
+        kafkaTemplate.send("transaction-events", event.getReferenceId(), event);
     }
 
-    public Transaction executeWithdrawalSaga(Transaction transaction) {
-        boolean debitSuccess = accountServiceClient.debit(
-                transaction.getSenderAccountId(), transaction.getAmount(), transaction.getReferenceId());
-        if (!debitSuccess)
-            return failTransaction(transaction, "Withdrawal failed: insufficient funds");
-        return completeTransaction(transaction);
+    private void handleDebitFailed(Transaction transaction, TransactionEvent event) {
+        transaction.setStatus("FAILED");
+        transaction.setFailureReason(event.getFailureReason());
+        transactionRepository.save(transaction);
     }
 
-    private Transaction completeTransaction(Transaction transaction) {
-        transaction.setStatus(Transaction.TransactionStatus.COMPLETED);
-        transaction.setCompletedAt(LocalDateTime.now());
-        Transaction saved = transactionRepository.save(transaction);
-        publishEvent(saved, "TRANSACTION_COMPLETED");
-        log.info("SAGA COMPLETE: referenceId={}", transaction.getReferenceId());
-        return saved;
+    private void handleCreditSuccess(Transaction transaction, TransactionEvent event) {
+        transaction.setStatus("SUCCESS");
+        transactionRepository.save(transaction);
+
+        // Step 3 Trigger: Publish completed event for Notification Service
+        event.setStatus("COMPLETED");
+        kafkaTemplate.send("transaction-notifications", event.getReferenceId(), event);
     }
 
-    private Transaction failTransaction(Transaction transaction, String reason) {
-        transaction.setStatus(Transaction.TransactionStatus.FAILED);
-        transaction.setFailureReason(reason);
-        transaction.setCompletedAt(LocalDateTime.now());
-        Transaction saved = transactionRepository.save(transaction);
-        publishEvent(saved, "TRANSACTION_FAILED");
-        log.error("SAGA FAILED: referenceId={}, reason={}", transaction.getReferenceId(), reason);
-        return saved;
+    private void handleCreditFailed(Transaction transaction, TransactionEvent event) {
+        transaction.setStatus("COMPENSATING_REFUND");
+        transaction.setFailureReason(event.getFailureReason());
+        transactionRepository.save(transaction);
+
+        // Compensation Trigger: Refund source account
+        event.setStatus("INITIATE_REFUND");
+        kafkaTemplate.send("transaction-events", event.getReferenceId(), event);
     }
 
-    private void publishEvent(Transaction transaction, String eventType) {
-        TransactionEvent event = TransactionEvent.builder()
-                .eventType(eventType)
-                .transactionId(transaction.getId())
-                .referenceId(transaction.getReferenceId())
-                .senderAccountId(transaction.getSenderAccountId())
-                .receiverAccountId(transaction.getReceiverAccountId())
-                .amount(transaction.getAmount())
-                .currency(transaction.getCurrency())
-                .transactionType(transaction.getType().name())
-                .status(transaction.getStatus().name())
-                .description(transaction.getDescription())
-                .failureReason(transaction.getFailureReason())
-                .timestamp(LocalDateTime.now())
-                .build();
+    private void handleRefundComplete(Transaction transaction, TransactionEvent event) {
+        transaction.setStatus("FAILED_AND_REFUNDED");
+        transactionRepository.save(transaction);
 
-        kafkaTemplate.send(KafkaConfig.TRANSACTION_EVENTS_TOPIC, transaction.getReferenceId(), event);
-        log.info("Kafka event published: eventType={}, referenceId={}", eventType, transaction.getReferenceId());
+        // Publish refund completed event for Notification Service
+        event.setStatus("FAILED_AND_REFUNDED");
+        kafkaTemplate.send("transaction-notifications", event.getReferenceId(), event);
     }
 }

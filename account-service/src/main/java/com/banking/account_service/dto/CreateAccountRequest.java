@@ -1,23 +1,20 @@
 package com.banking.account_service.dto;
 
-import com.banking.account_service.entity.Account;
+import java.math.BigDecimal;
 
-import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
+import lombok.AllArgsConstructor;
+import lombok.Builder;
 import lombok.Data;
+import lombok.NoArgsConstructor;
 
 @Data
+@Builder
+@NoArgsConstructor
+@AllArgsConstructor
 public class CreateAccountRequest {
-
-    @NotNull(message = "User ID required")
+    @NotNull(message = "User ID is required")
     private Long userId;
-
-    @NotBlank(message = "Account holder name required")
-    private String accountHolderName;
-
-    @NotBlank(message = "Email required")
-    private String email;
-
-    @NotNull(message = "Account type required")
-    private Account.AccountType accountType;
+    private String accountType;
+    private BigDecimal initialBalance;
 }

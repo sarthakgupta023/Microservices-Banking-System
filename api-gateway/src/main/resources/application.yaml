@@ -36,13 +36,14 @@ spring:
               args:
                 # 💡 Fixed: Pass as a single comma-separated string for flawless parsing
                 excludedPaths: "/api/auth/register,/api/auth/login,/api/auth/validate"
-
-        # 2. Account Service Route (Points to Docker container name)
+        
+        # 2. Account Service Route
         - id: account-service
           uri: http://account-service:8082
           predicates:
             - Path=/api/accounts/**
           filters:
+            - StripPrefix=1
             - JwtAuthFilter
 
         # 3. Transaction Service Route (Points to Docker container name)

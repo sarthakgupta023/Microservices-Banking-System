@@ -14,96 +14,126 @@ import com.banking.account_service.entity.Account;
 import com.banking.account_service.repository.AccountRepository;
 
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 
 @Service
 @RequiredArgsConstructor
+@Slf4j
 public class AccountService {
 
     private final AccountRepository accountRepository;
 
-    // ── CREATE ACCOUNT ────────────────────────────────────
+    @Transactional
     public AccountResponse createAccount(CreateAccountRequest request) {
+        String generatedAccountNumber = "ACC" + System.currentTimeMillis();
+
+        // Safe Enum conversion from incoming String to Account.AccountType
+        Account.AccountType type = Account.AccountType.SAVINGS;
+        if (request.getAccountType() != null) {
+            try {
+                type = Account.AccountType.valueOf(request.getAccountType().toUpperCase().trim());
+            } catch (IllegalArgumentException e) {
+                log.warn("Invalid account type '{}', defaulting to SAVINGS", request.getAccountType());
+                type = Account.AccountType.SAVINGS;
+            }
+        }
+
         Account account = Account.builder()
-                .accountNumber(generateAccountNumber())
                 .userId(request.getUserId())
-                .accountHolderName(request.getAccountHolderName())
-                .email(request.getEmail())
-                .accountType(request.getAccountType())
-                .balance(BigDecimal.ZERO) // Initial balance 0
+                .accountNumber(generatedAccountNumber)
+                .accountType(type)
+                .balance(request.getInitialBalance() != null ? request.getInitialBalance() : BigDecimal.ZERO)
                 .status(Account.AccountStatus.ACTIVE)
                 .build();
 
-        return AccountResponse.from(accountRepository.save(account));
+        Account savedAccount = accountRepository.save(account);
+        log.info("Created account: {} for userId: {}", savedAccount.getAccountNumber(), savedAccount.getUserId());
+        return mapToResponse(savedAccount);
     }
 
-    // ── GET BY ID ─────────────────────────────────────────
     public AccountResponse getAccountById(Long id) {
         Account account = accountRepository.findById(id)
-                .orElseThrow(() -> new RuntimeException("Account not found: " + id));
-        return AccountResponse.from(account);
+                .orElseThrow(() -> new RuntimeException("Account not found with ID: " + id));
+        return mapToResponse(account);
     }
 
-    // ── GET BY ACCOUNT NUMBER ─────────────────────────────
     public AccountResponse getByAccountNumber(String accountNumber) {
         Account account = accountRepository.findByAccountNumber(accountNumber)
                 .orElseThrow(() -> new RuntimeException("Account not found: " + accountNumber));
-        return AccountResponse.from(account);
+        return mapToResponse(account);
     }
 
-    // ── GET ALL BY USER ID ────────────────────────────────
     public List<AccountResponse> getAccountsByUserId(Long userId) {
         return accountRepository.findByUserId(userId)
                 .stream()
-                .map(AccountResponse::from)
+                .map(this::mapToResponse)
                 .collect(Collectors.toList());
     }
 
-    // ── DEPOSIT ───────────────────────────────────────────
+    // --- SAGA EVENT CONSUMER METHODS ---
+
+    @Transactional
+    public void debit(String accountNumber, BigDecimal amount) {
+        Account account = accountRepository.findByAccountNumberWithLock(accountNumber)
+                .orElseThrow(() -> new RuntimeException("Account not found: " + accountNumber));
+
+        if (account.getBalance().compareTo(amount) < 0) {
+            throw new RuntimeException("Insufficient balance in account: " + accountNumber);
+        }
+
+        account.setBalance(account.getBalance().subtract(amount));
+        accountRepository.save(account);
+        log.info("Saga Debit: Subtracted {} from account {}", amount, accountNumber);
+    }
+
+    @Transactional
+    public void credit(String accountNumber, BigDecimal amount) {
+        Account account = accountRepository.findByAccountNumberWithLock(accountNumber)
+                .orElseThrow(() -> new RuntimeException("Account not found: " + accountNumber));
+
+        account.setBalance(account.getBalance().add(amount));
+        accountRepository.save(account);
+        log.info("Saga Credit: Added {} to account {}", amount, accountNumber);
+    }
+
+    @Transactional
+    public void refund(String accountNumber, BigDecimal amount) {
+        credit(accountNumber, amount);
+        log.info("Saga Compensation: Refunded {} back to account {}", amount, accountNumber);
+    }
+
+    // --- REST CONTROLLER WRAPPERS ---
+
     @Transactional
     public AccountResponse deposit(TransactionRequest request) {
-        Account account = accountRepository.findByAccountNumberForUpdate(request.getAccountNumber())
-                .orElseThrow(() -> new RuntimeException("Account not found"));
-
-        if (account.getStatus() != Account.AccountStatus.ACTIVE) {
-            throw new RuntimeException("Account is not active");
-        }
-
-        account.setBalance(account.getBalance().add(request.getAmount()));
-        return AccountResponse.from(accountRepository.save(account));
+        credit(request.getAccountNumber(), request.getAmount());
+        return getByAccountNumber(request.getAccountNumber());
     }
 
-    // ── WITHDRAW ──────────────────────────────────────────
     @Transactional
     public AccountResponse withdraw(TransactionRequest request) {
-        Account account = accountRepository.findByAccountNumberForUpdate(request.getAccountNumber())
-                .orElseThrow(() -> new RuntimeException("Account not found"));
-
-        if (account.getStatus() != Account.AccountStatus.ACTIVE) {
-            throw new RuntimeException("Account is not active");
-        }
-
-        // Balance check — insufficient funds
-        if (account.getBalance().compareTo(request.getAmount()) < 0) {
-            throw new RuntimeException("Insufficient balance. Current: "
-                    + account.getBalance());
-        }
-
-        account.setBalance(account.getBalance().subtract(request.getAmount()));
-        return AccountResponse.from(accountRepository.save(account));
+        debit(request.getAccountNumber(), request.getAmount());
+        return getByAccountNumber(request.getAccountNumber());
     }
 
-    // ── BALANCE CHECK ─────────────────────────────────────
     public BigDecimal getBalance(String accountNumber) {
         Account account = accountRepository.findByAccountNumber(accountNumber)
-                .orElseThrow(() -> new RuntimeException("Account not found"));
+                .orElseThrow(() -> new RuntimeException("Account not found: " + accountNumber));
         return account.getBalance();
     }
 
-    // ── GENERATE ACCOUNT NUMBER ───────────────────────────
-    // Format: BNK + 10 random digits = "BNK1234567890"
-    private String generateAccountNumber() {
-        Long accountNumberseq = accountRepository.getNextAccountNumberSequence()
-        String accountNumber = "BNK" + accountNumberseq;
-        return accountNumber;
+    private AccountResponse mapToResponse(Account account) {
+        String typeStr = account.getAccountType() != null ? account.getAccountType().name() : "SAVINGS";
+        String statusStr = account.getStatus() != null ? account.getStatus().name() : "ACTIVE";
+
+        return AccountResponse.builder()
+                .id(account.getId())
+                .userId(account.getUserId())
+                .accountNumber(account.getAccountNumber())
+                .accountType(typeStr)
+                .balance(account.getBalance())
+                .status(statusStr)
+                .createdAt(account.getCreatedAt())
+                .build();
     }
 }
