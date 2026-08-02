@@ -22,13 +22,14 @@ export default function Navbar() {
 
   return (
     <nav style={{
-      background: 'rgba(15,26,8,0.95)',
-      borderBottom: '1px solid rgba(201,168,76,0.15)',
+      background: 'rgba(15, 26, 8, 0.75)',
+      borderBottom: '1px solid rgba(201,168,76,0.18)',
       padding: '0 24px', height: 60,
       display: 'flex', alignItems: 'center',
       justifyContent: 'space-between',
       position: 'sticky', top: 0, zIndex: 100,
-      backdropFilter: 'blur(12px)',
+      backdropFilter: 'blur(16px)',
+      WebkitBackdropFilter: 'blur(16px)',
     }}>
       {/* Logo */}
       <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>

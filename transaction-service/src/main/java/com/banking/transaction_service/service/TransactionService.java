@@ -47,6 +47,9 @@ public class TransactionService {
                 .senderAccountId(request.getSenderAccountId())
                 .receiverAccountId(request.getReceiverAccountId())
                 .amount(request.getAmount())
+                .currency(request.getCurrency())
+                .transactionType(request.getType())
+                .description(request.getDescription())
                 .status("INITIATE_DEBIT")
                 .timestamp(LocalDateTime.now())
                 .build();

@@ -66,7 +66,7 @@ export default function Withdraw() {
   };
 
   return (
-    <div style={{ minHeight: '100vh', background: '#0f1a08' }}>
+    <div style={{ minHeight: '100vh', background: 'transparent' }}>
       <Navbar />
       <div style={{ maxWidth: 560, margin: '0 auto', padding: '40px 24px' }}>
         <div className="fade-in">

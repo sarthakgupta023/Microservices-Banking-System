@@ -55,7 +55,7 @@ export default function Notifications() {
   });
 
   return (
-    <div style={{ minHeight: '100vh', background: '#0f1a08' }}>
+    <div style={{ minHeight: '100vh', background: 'transparent' }}>
       <Navbar />
 
       <div style={{ maxWidth: 850, margin: '0 auto', padding: '32px 24px' }}>

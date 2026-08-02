@@ -9,9 +9,9 @@ import org.springframework.kafka.config.TopicBuilder;
 public class KafkaConfig {
 
     public static final String TRANSACTION_EVENTS_TOPIC = "transaction-events";
-    public static final String NOTIFICATION_EVENTS_TOPIC = "notification-events";
+    public static final String ACCOUNT_EVENTS_TOPIC = "account-events";
+    public static final String TRANSACTION_NOTIFICATIONS_TOPIC = "transaction-notifications";
 
-    // Creates topic if not exists — 1 partition, 1 replica (dev setup)
     @Bean
     public NewTopic transactionEventsTopic() {
         return TopicBuilder.name(TRANSACTION_EVENTS_TOPIC)
@@ -21,8 +21,16 @@ public class KafkaConfig {
     }
 
     @Bean
-    public NewTopic notificationEventsTopic() {
-        return TopicBuilder.name(NOTIFICATION_EVENTS_TOPIC)
+    public NewTopic accountEventsTopic() {
+        return TopicBuilder.name(ACCOUNT_EVENTS_TOPIC)
+                .partitions(1)
+                .replicas(1)
+                .build();
+    }
+
+    @Bean
+    public NewTopic transactionNotificationsTopic() {
+        return TopicBuilder.name(TRANSACTION_NOTIFICATIONS_TOPIC)
                 .partitions(1)
                 .replicas(1)
                 .build();

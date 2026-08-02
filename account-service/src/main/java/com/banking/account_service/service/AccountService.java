@@ -1,14 +1,18 @@
 package com.banking.account_service.service;
 
 import java.math.BigDecimal;
+import java.time.LocalDateTime;
 import java.util.List;
+import java.util.UUID;
 import java.util.stream.Collectors;
 
+import org.springframework.kafka.core.KafkaTemplate;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import com.banking.account_service.dto.AccountResponse;
 import com.banking.account_service.dto.CreateAccountRequest;
+import com.banking.account_service.dto.TransactionEvent;
 import com.banking.account_service.dto.TransactionRequest;
 import com.banking.account_service.entity.Account;
 import com.banking.account_service.repository.AccountRepository;
@@ -22,12 +26,12 @@ import lombok.extern.slf4j.Slf4j;
 public class AccountService {
 
     private final AccountRepository accountRepository;
+    private final KafkaTemplate<String, TransactionEvent> kafkaTemplate;
 
     @Transactional
     public AccountResponse createAccount(CreateAccountRequest request) {
         String generatedAccountNumber = "ACC" + System.currentTimeMillis();
 
-        // Safe Enum conversion from incoming String to Account.AccountType
         Account.AccountType type = Account.AccountType.SAVINGS;
         if (request.getAccountType() != null) {
             try {
@@ -73,7 +77,7 @@ public class AccountService {
     // --- SAGA EVENT CONSUMER METHODS ---
 
     @Transactional
-    public void debit(String accountNumber, BigDecimal amount) {
+    public Account debit(String accountNumber, BigDecimal amount) {
         Account account = accountRepository.findByAccountNumberWithLock(accountNumber)
                 .orElseThrow(() -> new RuntimeException("Account not found: " + accountNumber));
 
@@ -82,38 +86,83 @@ public class AccountService {
         }
 
         account.setBalance(account.getBalance().subtract(amount));
-        accountRepository.save(account);
+        Account saved = accountRepository.save(account);
         log.info("Saga Debit: Subtracted {} from account {}", amount, accountNumber);
+        return saved;
     }
 
     @Transactional
-    public void credit(String accountNumber, BigDecimal amount) {
+    public Account credit(String accountNumber, BigDecimal amount) {
         Account account = accountRepository.findByAccountNumberWithLock(accountNumber)
                 .orElseThrow(() -> new RuntimeException("Account not found: " + accountNumber));
 
         account.setBalance(account.getBalance().add(amount));
-        accountRepository.save(account);
+        Account saved = accountRepository.save(account);
         log.info("Saga Credit: Added {} to account {}", amount, accountNumber);
+        return saved;
     }
 
     @Transactional
-    public void refund(String accountNumber, BigDecimal amount) {
-        credit(accountNumber, amount);
+    public Account refund(String accountNumber, BigDecimal amount) {
+        Account saved = credit(accountNumber, amount);
         log.info("Saga Compensation: Refunded {} back to account {}", amount, accountNumber);
+        return saved;
     }
 
     // --- REST CONTROLLER WRAPPERS ---
 
     @Transactional
     public AccountResponse deposit(TransactionRequest request) {
-        credit(request.getAccountNumber(), request.getAmount());
-        return getByAccountNumber(request.getAccountNumber());
+        Account account = credit(request.getAccountNumber(), request.getAmount());
+
+        // Send Notification Event
+        TransactionEvent event = TransactionEvent.builder()
+                .eventType("DEPOSIT")
+                .referenceId("DEP-" + UUID.randomUUID().toString().substring(0, 8))
+                .senderAccountId(request.getAccountNumber())
+                .receiverAccountId(request.getAccountNumber())
+                .amount(request.getAmount())
+                .currency("INR")
+                .transactionType("DEPOSIT")
+                .status("COMPLETED")
+                .description("Account Deposit")
+                .timestamp(LocalDateTime.now())
+                .userId(account.getUserId())
+                .build();
+        try {
+            kafkaTemplate.send("transaction-notifications", event.getReferenceId(), event);
+        } catch (Exception e) {
+            log.error("Failed to send deposit notification: {}", e.getMessage());
+        }
+
+        return mapToResponse(account);
     }
 
     @Transactional
     public AccountResponse withdraw(TransactionRequest request) {
-        debit(request.getAccountNumber(), request.getAmount());
-        return getByAccountNumber(request.getAccountNumber());
+        Account account = debit(request.getAccountNumber(), request.getAmount());
+
+        // Send Notification Event
+        TransactionEvent event = TransactionEvent.builder()
+                .eventType("WITHDRAWAL")
+                .referenceId("WTH-" + UUID.randomUUID().toString().substring(0, 8))
+                .senderAccountId(request.getAccountNumber())
+                .receiverAccountId(request.getAccountNumber())
+                .amount(request.getAmount())
+                .currency("INR")
+                .transactionType("WITHDRAWAL")
+                .status("COMPLETED")
+                .description("Account Withdrawal")
+                .timestamp(LocalDateTime.now())
+                .userId(account.getUserId())
+                .build();
+        try {
+            kafkaTemplate.send("transaction-notifications", event.getReferenceId(), event);
+        } catch (Exception e) {
+            log.error("Failed to send withdrawal notification: {}", e.getMessage());
+        }
+
+        return mapToResponse(account);
     }
 
     public BigDecimal getBalance(String accountNumber) {

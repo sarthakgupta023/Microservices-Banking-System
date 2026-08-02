@@ -93,7 +93,7 @@ export default function Transfer() {
   };
 
   return (
-    <div style={{ minHeight: '100vh', background: '#0f1a08' }}>
+    <div style={{ minHeight: '100vh', background: 'transparent' }}>
       <Navbar />
       <div style={{ maxWidth: 540, margin: '0 auto', padding: '48px 24px' }}>
         <div className="fade-in">

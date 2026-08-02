@@ -38,7 +38,7 @@ spring:
       properties:
         spring.json.trusted.packages: "*"
         # Points to Account Service's event package
-        spring.json.value.default.type: "com.banking.account_service.event.TransactionEvent"
+        spring.json.value.default.type: "com.banking.account_service.dto.TransactionEvent"
 
 jwt:
   secret: ${JWT_SECRET:BankingAppSuperSecretKey2024ForJWTSigningMustBe256BitsLong!!}

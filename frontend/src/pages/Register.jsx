@@ -32,7 +32,7 @@ export default function Register() {
     <div style={{
       minHeight: '100vh', display: 'flex',
       alignItems: 'center', justifyContent: 'center',
-      background: 'radial-gradient(ellipse at 70% 50%, #243516 0%, #0f1a08 70%)',
+      background: 'transparent',
       padding: 24,
     }}>
       <div className="fade-in" style={{ width: '100%', maxWidth: 420 }}>

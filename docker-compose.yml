@@ -1,5 +1,3 @@
-version: '3.8'
-
 services:
   # Database for Core Services
   postgres-db:
@@ -31,6 +29,7 @@ services:
     container_name: banking-kafka
     ports:
       - "9092:9092"
+      - "29092:29092"
     depends_on:
       - zookeeper
     environment:
@@ -57,6 +56,7 @@ services:
       SPRING_DATASOURCE_PASSWORD: supersecurepassword
     networks:
       - banking-network
+    restart: on-failure
 
   # 2. Account Management Service
   account-service:
@@ -74,6 +74,7 @@ services:
       SPRING_KAFKA_BOOTSTRAP_SERVERS: kafka:9092
     networks:
       - banking-network
+    restart: on-failure
 
   # 3. Transaction Service (Produces Events to Kafka)
   transaction-service:
@@ -91,6 +92,7 @@ services:
       SPRING_KAFKA_BOOTSTRAP_SERVERS: kafka:9092
     networks:
       - banking-network
+    restart: on-failure
 
   # 4. Notification Service (Event Consumer)
   notification-service:
@@ -108,8 +110,9 @@ services:
       SPRING_KAFKA_BOOTSTRAP_SERVERS: kafka:9092
     networks:
       - banking-network
+    restart: on-failure
 
-  # API Gateway Routing Everything
+  # API Gateway — Routes all traffic to microservices
   api-gateway:
     build: ./api-gateway
     container_name: api-gateway
@@ -122,6 +125,7 @@ services:
       - notification-service
     networks:
       - banking-network
+    restart: on-failure
 
 volumes:
   pgdata:

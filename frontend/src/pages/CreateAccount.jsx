@@ -35,7 +35,7 @@ export default function CreateAccount() {
   };
 
   return (
-    <div style={{ minHeight: '100vh', background: '#0f1a08' }}>
+    <div style={{ minHeight: '100vh', background: 'transparent' }}>
       <Navbar />
       <div style={{
         maxWidth: 480, margin: '0 auto',

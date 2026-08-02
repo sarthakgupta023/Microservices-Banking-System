@@ -16,48 +16,64 @@ import lombok.extern.slf4j.Slf4j;
 @Slf4j
 public class NotificationService {
 
-  private final NotificationRepository notificationRepository;
+    private final NotificationRepository notificationRepository;
 
-  public void processTransactionEvent(TransactionEvent event) {
-    log.info("Processing transaction event for notification: {}", event.getReferenceId());
+    public void processTransactionEvent(TransactionEvent event) {
+        log.info("Processing transaction event for notification: ref={}, userId={}", event.getReferenceId(), event.getUserId());
 
-    String message = String.format("Transaction %s of %s %s: Status - %s",
-        event.getTransactionType() != null ? event.getTransactionType() : "TRANSFER",
-        event.getAmount() != null ? event.getAmount() : "0.00",
-        event.getCurrency() != null ? event.getCurrency() : "USD",
-        event.getStatus() != null ? event.getStatus() : "COMPLETED");
+        if (event.getUserId() == null) {
+            log.warn("Skipping notification because userId is null for ref: {}", event.getReferenceId());
+            return;
+        }
 
-    Notification notification = Notification.builder()
-        .userId(event.getUserId())
-        .accountNumber(event.getReceiverAccountId() != null ? event.getReceiverAccountId() : event.getSenderAccountId())
-        .referenceId(event.getReferenceId())
-        .recipientEmail("user@example.com")
-        .message(message)
-        .notificationType("TRANSACTION_EVENT")
-        .status("SENT")
-        .isRead(false)
-        .build();
+        String typeStr = event.getTransactionType() != null ? event.getTransactionType() : "TRANSACTION";
+        String amtStr = event.getAmount() != null ? event.getAmount().toString() : "0.00";
+        String currStr = event.getCurrency() != null ? event.getCurrency() : "INR";
 
-    notificationRepository.save(notification);
-    log.info("Notification persisted successfully for referenceId: {}", event.getReferenceId());
-  }
+        String message;
+        if ("TRANSFER_DEBIT".equalsIgnoreCase(typeStr)) {
+            message = String.format("Debited ₹%s from account %s to %s.", amtStr, event.getSenderAccountId(), event.getReceiverAccountId());
+        } else if ("TRANSFER_CREDIT".equalsIgnoreCase(typeStr)) {
+            message = String.format("Credited ₹%s to account %s from %s.", amtStr, event.getReceiverAccountId(), event.getSenderAccountId());
+        } else if ("DEPOSIT".equalsIgnoreCase(typeStr)) {
+            message = String.format("Deposited ₹%s into account %s successfully.", amtStr, event.getSenderAccountId());
+        } else if ("WITHDRAWAL".equalsIgnoreCase(typeStr)) {
+            message = String.format("Withdrew ₹%s from account %s successfully.", amtStr, event.getSenderAccountId());
+        } else {
+            message = String.format("Transaction %s of ₹%s (%s) status: %s", typeStr, amtStr, currStr, event.getStatus());
+        }
 
-  public Notification createNotification(Notification notification) {
-    if (notification.getStatus() == null) {
-      notification.setStatus("SENT");
+        Notification notification = Notification.builder()
+                .userId(event.getUserId())
+                .accountNumber(event.getReceiverAccountId() != null ? event.getReceiverAccountId() : event.getSenderAccountId())
+                .referenceId(event.getReferenceId())
+                .recipientEmail("user@example.com")
+                .message(message)
+                .notificationType("TRANSACTION_EVENT")
+                .status("COMPLETED")
+                .isRead(false)
+                .build();
+
+        notificationRepository.save(notification);
+        log.info("Notification persisted successfully for referenceId: {}, userId: {}", event.getReferenceId(), event.getUserId());
     }
-    log.info("Saving notification for user: {}", notification.getUserId());
-    return notificationRepository.save(notification);
-  }
 
-  public List<Notification> getNotificationsByUserId(Long userId) {
-    return notificationRepository.findByUserIdOrderByCreatedAtDesc(userId);
-  }
+    public Notification createNotification(Notification notification) {
+        if (notification.getStatus() == null) {
+            notification.setStatus("SENT");
+        }
+        log.info("Saving notification for user: {}", notification.getUserId());
+        return notificationRepository.save(notification);
+    }
 
-  public void markAsRead(Long notificationId) {
-    notificationRepository.findById(notificationId).ifPresent(n -> {
-      n.setRead(true);
-      notificationRepository.save(n);
-    });
-  }
+    public List<Notification> getNotificationsByUserId(Long userId) {
+        return notificationRepository.findByUserIdOrderByCreatedAtDesc(userId);
+    }
+
+    public void markAsRead(Long notificationId) {
+        notificationRepository.findById(notificationId).ifPresent(n -> {
+            n.setRead(true);
+            notificationRepository.save(n);
+        });
+    }
 }

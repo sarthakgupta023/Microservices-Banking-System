@@ -71,7 +71,7 @@ export default function History() {
     .reduce((s, t) => s + parseFloat(t.amount || 0), 0);
 
   return (
-    <div style={{ minHeight: '100vh', background: '#0f1a08' }}>
+    <div style={{ minHeight: '100vh', background: 'transparent' }}>
       <Navbar />
       <div style={{ maxWidth: 800, margin: '0 auto', padding: '40px 24px' }}>
         <div className="fade-in">

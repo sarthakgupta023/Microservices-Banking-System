@@ -25,4 +25,5 @@ public class TransactionEvent {
     private String description;
     private String failureReason;
     private LocalDateTime timestamp;
+    private Long userId;
 }
