@@ -28,24 +28,24 @@ api.interceptors.response.use(
 
 export const authAPI = {
   register: (data) => api.post('/api/auth/register', data),
-  login:    (data) => api.post('/api/auth/login', data),
+  login: (data) => api.post('/api/auth/login', data),
 };
 
 export const accountAPI = {
-  create:     (data) => api.post('/api/accounts', data),
-  getByUser:  (userId) => api.get(`/api/accounts/user/${userId}`),
+  create: (data) => api.post('/api/accounts', data),
+  getByUser: (userId) => api.get(`/api/accounts/user/${userId}`),
   getBalance: (accountNo) => api.get(`/api/accounts/${accountNo}/balance`),
-  deposit:    (data) => api.post('/api/accounts/deposit', data),
-  withdraw:   (data) => api.post('/api/accounts/withdraw', data),
+  deposit: (data) => api.post('/api/accounts/deposit', data),
+  withdraw: (data) => api.post('/api/accounts/withdraw', data),
 };
 
 export const transactionAPI = {
-  transfer:   (data) => api.post('/api/transactions/transfer', data),
+  transfer: (data) => api.post('/api/transactions/transfer', data),
   getHistory: (accountNo) => api.get(`/api/transactions/account/${accountNo}`),
 };
 
 export const notificationAPI = {
-  getByUser:  (userId) => api.get(`/api/notifications/user/${userId}`),
+  getByUser: (userId) => api.get(`/api/notifications/user/${userId}`),
   markAsRead: (id) => api.patch(`/api/notifications/${id}/read`),
 };
 
